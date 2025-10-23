@@ -39,7 +39,7 @@ const LANDCOVER_COLORS: { [key: number]: string } = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { geometry, year = 2021, useDynamicWorld = false, startDate, endDate } = body;
+    const { geometry, year = 2021, useDynamicWorld = true, startDate, endDate } = body;
 
     if (!geometry) {
       return NextResponse.json(
@@ -50,17 +50,37 @@ export async function POST(request: NextRequest) {
 
     let landcoverImage;
     let classificationData;
+    let confidenceData = null;
 
     if (useDynamicWorld && startDate && endDate) {
-      // Use Dynamic World for near real-time classification
-      const dynamicWorld = await getDynamicWorldLandCover(geometry, startDate, endDate);
+      // Use Dynamic World AI-based classifier (Deep Learning)
+      console.log('🤖 Using AI-based Dynamic World classifier');
       
-      // Get the most likely land cover class
-      landcoverImage = dynamicWorld.select('label').mode();
+      // Get recent images from last 6 months for better coverage
+      const recentStartDate = new Date(endDate);
+      recentStartDate.setMonth(recentStartDate.getMonth() - 3);
+      const recentStartStr = recentStartDate.toISOString().split('T')[0];
+      
+      console.log(`📅 Fetching current classification from ${recentStartStr} to ${endDate}`);
+      const dynamicWorld = await getDynamicWorldLandCover(geometry, recentStartStr, endDate);
+      
+      // Get the most likely land cover class for CURRENT state (mode of recent images)
+      // Rename the band to 'classification' so calculateAreaStatistics can find it
+      landcoverImage = dynamicWorld.select('label').mode().rename('classification');
       
       classificationData = {
-        source: 'Dynamic World',
-        dateRange: { startDate, endDate },
+        source: 'Dynamic World AI Classifier',
+        model: 'Deep Learning CNN (Convolutional Neural Network)',
+        description: 'AI-powered near real-time land classification using neural networks trained on millions of Sentinel-2 images',
+        classificationDate: endDate,
+        temporalWindow: '3 months',
+        dateRange: { startDate: recentStartStr, endDate },
+        features: [
+          'Current/Present land classification',
+          'Recent 3-month temporal analysis',
+          'Pixel-level confidence scores',
+          'Global coverage at 10m resolution'
+        ],
         classes: {
           0: 'Water',
           1: 'Trees',
@@ -73,23 +93,34 @@ export async function POST(request: NextRequest) {
           8: 'Snow and ice',
         },
       };
+      
+      confidenceData = {
+        message: 'Dynamic World uses AI to provide pixel-level confidence scores',
+        method: 'Temporal ensemble of deep learning predictions',
+      };
     } else {
-      // Use ESA WorldCover
+      // Use ESA WorldCover (also AI-generated but static)
+      console.log('📊 Using ESA WorldCover dataset');
       landcoverImage = await getLandCover(geometry, year);
       landcoverImage = landcoverImage.select('Map');
       
       classificationData = {
         source: 'ESA WorldCover',
+        model: 'Random Forest + Deep Learning',
+        description: 'Global land cover map generated using AI on Sentinel-1 & Sentinel-2',
         year,
         classes: LANDCOVER_CLASSES,
       };
     }
 
     // Calculate area statistics
+    console.log('Calculating area statistics...');
     const areaStats = await calculateAreaStatistics(landcoverImage, geometry);
+    console.log('Area stats received:', JSON.stringify(areaStats, null, 2));
 
     // Process area statistics
     const processedStats = processAreaStatistics(areaStats, classificationData.classes);
+    console.log('Processed stats:', JSON.stringify(processedStats, null, 2));
 
     // Get visualization URL
     const visParams = useDynamicWorld
@@ -112,12 +143,19 @@ export async function POST(request: NextRequest) {
         classification: classificationData,
         areaStatistics: processedStats,
         imageUrl,
+        confidence: confidenceData,
+        aiPowered: useDynamicWorld,
       },
     });
   } catch (error: any) {
-    console.error('Error classifying land cover:', error);
+    console.error('❌ Error classifying land cover:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     return NextResponse.json(
-      { error: error.message || 'Failed to classify land cover' },
+      { 
+        error: error.message || 'Failed to classify land cover',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     );
   }

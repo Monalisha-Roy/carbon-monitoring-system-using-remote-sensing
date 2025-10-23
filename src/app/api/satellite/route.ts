@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    return NextResponse.json({
+    const responseData = {
       success: true,
       data: {
         images: {
@@ -90,7 +90,11 @@ export async function POST(request: NextRequest) {
         statistics: stats,
         dateRange: { startDate, endDate },
       },
-    });
+    };
+
+    console.log('Sending response with images:', responseData.data.images);
+
+    return NextResponse.json(responseData);
   } catch (error: any) {
     console.error('Error processing satellite data:', error);
     return NextResponse.json(

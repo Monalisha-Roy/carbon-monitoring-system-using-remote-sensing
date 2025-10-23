@@ -79,6 +79,10 @@ export default function Dashboard({ satelliteData, classificationData, carbonDat
 }
 
 function SatelliteDataView({ data, polygon }: { data: any; polygon?: any }) {
+  console.log('SatelliteDataView - data:', data);
+  console.log('SatelliteDataView - polygon:', polygon);
+  console.log('SatelliteDataView - images:', data.images);
+  
   return (
     <div className="space-y-6">
       <div>
@@ -111,15 +115,32 @@ function SatelliteDataView({ data, polygon }: { data: any; polygon?: any }) {
         <h3 className="text-xl font-bold mb-4 text-blue-100 flex items-center gap-2">
           🛰️ Satellite Images
         </h3>
+        
+        <div className="mb-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+          <p className="text-sm text-blue-200">
+            <strong>ℹ️ Note:</strong> Satellite imagery tiles are loaded from Google Earth Engine. 
+            You can zoom and pan within each map preview below.
+          </p>
+          <details className="mt-2">
+            <summary className="text-xs text-blue-300 cursor-pointer hover:text-blue-200">Debug Info</summary>
+            <div className="mt-2 p-2 bg-slate-900 rounded text-xs font-mono text-blue-100 overflow-x-auto">
+              <div>True Color URL: {data.images?.trueColor?.substring(0, 100)}...</div>
+              <div>NDVI URL: {data.images?.ndvi?.substring(0, 100)}...</div>
+              <div>EVI URL: {data.images?.evi?.substring(0, 100)}...</div>
+              <div>Has Polygon: {polygon ? 'Yes' : 'No'}</div>
+            </div>
+          </details>
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {data.images?.trueColor && (
-            <ImageCard title="True Color" url={data.images.trueColor} polygon={polygon} />
+            <ImageButton title="True Color" url={data.images.trueColor} description="Natural color view" polygon={polygon} />
           )}
           {data.images?.ndvi && (
-            <ImageCard title="NDVI" url={data.images.ndvi} polygon={polygon} />
+            <ImageButton title="NDVI" url={data.images.ndvi} description="Vegetation health map" polygon={polygon} />
           )}
           {data.images?.evi && (
-            <ImageCard title="EVI" url={data.images.evi} polygon={polygon} />
+            <ImageButton title="EVI" url={data.images.evi} description="Enhanced vegetation index" polygon={polygon} />
           )}
         </div>
       </div>
@@ -134,20 +155,77 @@ function SatelliteDataView({ data, polygon }: { data: any; polygon?: any }) {
 }
 
 function ClassificationView({ data }: { data: any }) {
+  console.log('ClassificationView - Full data:', data);
+  console.log('ClassificationView - areaStatistics:', data.areaStatistics);
+  console.log('ClassificationView - classification:', data.classification);
+  
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-xl font-bold mb-4 text-blue-100 flex items-center gap-2">
-          🌍 Land Cover Analysis
+          {data.aiPowered ? '🤖' : '🌍'} AI-Powered Land Cover Analysis
         </h3>
-        <div className="bg-blue-900/30 rounded-xl p-5 mb-4 border-2 border-blue-500/30">
-          <p className="text-sm text-blue-200 font-semibold">
-            <strong>📡 Source:</strong> {data.classification?.source}
-          </p>
+        
+        {/* AI Model Information */}
+        <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 rounded-xl p-5 mb-4 border-2 border-blue-500/50 backdrop-blur-sm">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="p-2 bg-blue-500/30 rounded-lg">
+              <svg className="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-blue-100 font-bold mb-1">
+                {data.classification?.source || 'AI Classifier'}
+              </p>
+              {data.classification?.model && (
+                <p className="text-xs text-blue-300 mb-2">
+                  <strong>Model:</strong> {data.classification.model}
+                </p>
+              )}
+              {data.classification?.description && (
+                <p className="text-xs text-blue-200 mb-2">
+                  {data.classification.description}
+                </p>
+              )}
+              {data.classification?.features && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {data.classification.features.map((feature: string, idx: number) => (
+                    <span key={idx} className="px-2 py-1 bg-blue-500/20 rounded text-xs text-blue-200 border border-blue-400/30">
+                      ✓ {feature}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          
           {data.classification?.year && (
-            <p className="text-sm text-blue-200 font-semibold">
+            <p className="text-sm text-blue-200 font-semibold mt-3 pt-3 border-t border-blue-500/30">
               <strong>📅 Year:</strong> {data.classification.year}
             </p>
+          )}
+          {data.classification?.classificationDate && (
+            <p className="text-sm text-blue-200 font-semibold mt-3 pt-3 border-t border-blue-500/30">
+              <strong>📅 Classification Date:</strong> {data.classification.classificationDate}
+              {data.classification.temporalWindow && (
+                <span className="text-xs text-blue-300 ml-2">
+                  (using {data.classification.temporalWindow} of recent data)
+                </span>
+              )}
+            </p>
+          )}
+          {data.classification?.dateRange && !data.classification?.classificationDate && (
+            <p className="text-sm text-blue-200 font-semibold mt-3 pt-3 border-t border-blue-500/30">
+              <strong>📅 Date Range:</strong> {data.classification.dateRange.startDate} to {data.classification.dateRange.endDate}
+            </p>
+          )}
+          {data.confidence && (
+            <div className="mt-3 pt-3 border-t border-blue-500/30">
+              <p className="text-xs text-blue-300">
+                <strong>🎯 Confidence:</strong> {data.confidence.message}
+              </p>
+            </div>
           )}
         </div>
       </div>
@@ -155,8 +233,12 @@ function ClassificationView({ data }: { data: any }) {
       {data.areaStatistics && data.areaStatistics.length > 0 && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <LandCoverBarChart data={data.areaStatistics} />
-            <LandCoverPieChart data={data.areaStatistics} />
+            <div className="bg-slate-700 p-4 rounded-xl border-2 border-blue-500/30">
+              <LandCoverBarChart data={data.areaStatistics} />
+            </div>
+            <div className="bg-slate-700 p-4 rounded-xl border-2 border-blue-500/30">
+              <LandCoverPieChart data={data.areaStatistics} />
+            </div>
           </div>
 
           <div>
@@ -204,7 +286,7 @@ function CarbonView({ data }: { data: any }) {
   const isEligible = data.credits?.eligibility === 'Potentially Eligible';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 ">
       <div>
         <h3 className="text-xl font-bold mb-4 text-blue-100 flex items-center gap-2">
           💰 Carbon Credit Estimation
@@ -336,87 +418,221 @@ function StatCard({
   );
 }
 
-function ImageCard({ title, url, polygon }: { title: string; url: string; polygon?: any }) {
+function ImageButton({ title, url, description, polygon }: { title: string; url: string; description: string; polygon?: any }) {
   const mapRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    if (!showMap) return;
+    
+    // Only run on client side
+    if (typeof window === 'undefined' || !containerRef.current) {
+      console.log('Window or container not ready');
+      return;
+    }
 
-    // Dynamically import Leaflet only on the client side
-    let mounted = true;
+    console.log('ImageButton - Initializing map for:', title);
+    console.log('Tile URL:', url);
+    console.log('Polygon:', polygon);
+    console.log('Container ref:', containerRef.current);
 
-    const initMap = async () => {
-      if (typeof window === 'undefined') return;
+    setIsLoading(true);
+    setError(null);
 
-      const L = (await import('leaflet')).default;
+    // Import Leaflet only on client side
+    import('leaflet').then((LeafletModule) => {
+      try {
+        console.log('Leaflet module loaded:', LeafletModule);
+        const L = (LeafletModule as any).default || LeafletModule;
+        console.log('L object:', L);
+        
+        // Clean up any existing map
+        if (mapRef.current) {
+          console.log('Removing existing map');
+          mapRef.current.remove();
+        }
 
-      if (!mounted || !containerRef.current) return;
+        if (!containerRef.current) {
+          console.log('Container disappeared');
+          return;
+        }
 
-      // Calculate center and bounds from polygon if available
-      let center: [number, number] = [0, 0];
-      let zoom = 2;
+        // Calculate center from polygon if available
+        let center: [number, number] = [0, 0];
+        let zoom = 2;
+        
+        if (polygon && polygon.coordinates && polygon.coordinates[0]) {
+          const coords = polygon.coordinates[0];
+          const lats = coords.map((c: number[]) => c[1]);
+          const lngs = coords.map((c: number[]) => c[0]);
+          const centerLat = (Math.max(...lats) + Math.min(...lats)) / 2;
+          const centerLng = (Math.max(...lngs) + Math.min(...lngs)) / 2;
+          center = [centerLat, centerLng];
+          zoom = 13; // Zoom in closer when we have a polygon
+          console.log('Map center:', center, 'zoom:', zoom);
+        }
 
-      if (polygon && polygon.geometry && polygon.geometry.coordinates) {
-        const coords = polygon.geometry.coordinates[0];
-        const lats = coords.map((c: number[]) => c[1]);
-        const lngs = coords.map((c: number[]) => c[0]);
-        const centerLat = (Math.max(...lats) + Math.min(...lats)) / 2;
-        const centerLng = (Math.max(...lngs) + Math.min(...lngs)) / 2;
-        center = [centerLat, centerLng];
-        zoom = 12; // Zoom in closer when we have a polygon
-      }
+        // Create a new map instance
+        console.log('Creating map with center:', center, 'zoom:', zoom);
+        const map = L.map(containerRef.current, {
+          center: center,
+          zoom: zoom,
+          zoomControl: true,
+          attributionControl: false,
+          preferCanvas: true,
+        });
 
-      // Initialize the map
-      const map = L.map(containerRef.current, {
-        center,
-        zoom,
-        zoomControl: true,
-        attributionControl: false,
-      });
+        console.log('Map created successfully:', map);
 
-      mapRef.current = map;
-
-      // Add the tile layer from Earth Engine
-      L.tileLayer(url, {
-        maxZoom: 18,
-        attribution: 'Google Earth Engine',
-      }).addTo(map);
-
-      // Add polygon overlay if available
-      if (polygon && polygon.geometry && polygon.geometry.coordinates) {
-        const coords = polygon.geometry.coordinates[0].map((c: number[]) => [c[1], c[0]]);
-        L.polygon(coords, {
-          color: '#3b82f6',
-          fillColor: '#3b82f6',
-          fillOpacity: 0.1,
-          weight: 2,
+        // Add a base layer first (OSM) to see if the map is working
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap',
+          opacity: 0.3, // Make it semi-transparent so we can see Earth Engine tiles on top
         }).addTo(map);
+
+        // Add Earth Engine tile layer on top
+        console.log('Adding tile layer with URL:', url);
+        const tileLayer = L.tileLayer(url, {
+          attribution: 'Google Earth Engine',
+          maxZoom: 18,
+          opacity: 1,
+          errorTileUrl: '', // Don't show broken tile images
+        }).addTo(map);
+
+        console.log('Tile layer added:', tileLayer);
+
+        // Listen for tile load events
+        tileLayer.on('tileerror', (e: any) => {
+          console.error('Tile load error:', e);
+          console.error('Failed tile URL:', e.tile.src);
+        });
+
+        tileLayer.on('tileload', (e: any) => {
+          console.log('Tile loaded successfully:', e);
+          console.log('Tile URL:', e.tile.src);
+          console.log('Tile natural size:', e.tile.naturalWidth, 'x', e.tile.naturalHeight);
+          
+          // Check if the tile is actually visible (not transparent/empty)
+          if (e.tile.complete && e.tile.naturalWidth > 0) {
+            console.log('✓ Tile has content');
+          } else {
+            console.warn('⚠ Tile may be empty or not loaded');
+          }
+        });
+
+        // Add polygon overlay if available
+        if (polygon && polygon.coordinates && polygon.coordinates[0]) {
+          const coords = polygon.coordinates[0].map((c: number[]) => [c[1], c[0]]);
+          L.polygon(coords, {
+            color: '#3b82f6',
+            weight: 2,
+            fillOpacity: 0.1,
+          }).addTo(map);
+          console.log('Polygon overlay added');
+        }
+
+        mapRef.current = map;
+
+        // Fit map to show something
+        setTimeout(() => {
+          map.invalidateSize();
+          setIsLoading(false);
+          console.log('Map ready and invalidated');
+        }, 100);
+      } catch (err) {
+        console.error('Error creating map:', err);
+        setError(`Failed to load map: ${err}`);
+        setIsLoading(false);
       }
-    };
+    }).catch((err) => {
+      console.error('Error loading Leaflet:', err);
+      setError(`Failed to load mapping library: ${err}`);
+      setIsLoading(false);
+    });
 
-    initMap();
-
-    // Cleanup
+    // Cleanup on unmount
     return () => {
-      mounted = false;
       if (mapRef.current) {
         mapRef.current.remove();
-        mapRef.current = null;
       }
     };
-  }, [url, polygon]);
+  }, [url, polygon, showMap]);
+  
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Note: title is intentionally not in dependencies as it's static
 
   return (
-    <div className="border-2 border-blue-500/30 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all">
+    <div className="border-2 border-blue-500/30 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all bg-slate-700">
       <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-3 border-b-2 border-blue-400">
         <h4 className="text-sm font-bold text-white">{title}</h4>
       </div>
-      <div 
-        ref={containerRef}
-        style={{ height: '300px', width: '100%' }}
-        className="bg-slate-700"
-      />
+      
+      <div className="p-4">
+        <p className="text-sm text-blue-200 mb-3">{description}</p>
+        
+        {!showMap ? (
+          <div className="space-y-3">
+            <div className="w-full h-64 rounded-lg bg-slate-900 border-2 border-blue-500/20 flex items-center justify-center">
+              <div className="text-center">
+                <svg className="w-16 h-16 text-blue-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                <p className="text-blue-300 text-sm mb-3">Click to load map</p>
+                <button
+                  onClick={() => setShowMap(true)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-all"
+                >
+                  Load Interactive Map
+                </button>
+              </div>
+            </div>
+            
+            <div className="text-xs text-blue-300 bg-slate-800 rounded p-2">
+              <div className="font-mono overflow-x-auto mb-2">
+                URL: {url.substring(0, 80)}...
+              </div>
+              {polygon && polygon.coordinates && polygon.coordinates[0] && (
+                <div className="mt-2 pt-2 border-t border-blue-500/20">
+                  <div className="font-semibold mb-1">Test: View sample tile directly</div>
+                  <a 
+                    href={url.replace('{z}', '10').replace('{x}', '0').replace('{y}', '0')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 underline text-xs"
+                  >
+                    Open tile z=10, x=0, y=0 in new tab →
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="relative">
+            <div 
+              ref={containerRef} 
+              className="w-full h-64 rounded-lg overflow-hidden border-2 border-blue-500/20 bg-slate-900"
+            />
+            
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 rounded-lg">
+                <div className="text-blue-300 flex flex-col items-center gap-2">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  <span className="text-sm">Loading map...</span>
+                </div>
+              </div>
+            )}
+            
+            {error && (
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 rounded-lg">
+                <div className="text-red-400 text-sm">{error}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

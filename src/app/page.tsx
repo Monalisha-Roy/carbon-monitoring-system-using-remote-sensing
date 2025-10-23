@@ -26,7 +26,7 @@ export default function Home() {
 
   // Date range for analysis
   const [startDate, setStartDate] = useState('2023-01-01');
-  const [endDate, setEndDate] = useState('2023-12-31');
+  const [endDate, setEndDate] = useState('2025-08-31');
 
   const analyzePolygon = useCallback(async (geo: Feature<Polygon>) => {
     if (!geo) return;
@@ -53,22 +53,32 @@ export default function Home() {
 
       const satData = await satResponse.json();
       setSatelliteData(satData.data);
+      console.log('Satellite data received:', satData.data);
+      console.log('Image URLs:', satData.data?.images);
 
-      // Fetch classification data
+      // Fetch classification data (using AI-powered Dynamic World)
+      console.log('🔍 Calling classification API with:', { startDate, endDate, useDynamicWorld: true });
       const classResponse = await fetch('/api/classify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           geometry: geo.geometry,
-          year: 2021,
+          startDate,
+          endDate,
+          useDynamicWorld: true, // Enable AI classification
         }),
       });
 
+      console.log('Classification API response status:', classResponse.status);
+      
       if (!classResponse.ok) {
+        const errorText = await classResponse.text();
+        console.error('Classification API error:', errorText);
         throw new Error('Failed to fetch classification data');
       }
 
       const classData = await classResponse.json();
+      console.log('Classification data received:', classData);
       setClassificationData(classData.data);
 
       // Fetch carbon estimation
