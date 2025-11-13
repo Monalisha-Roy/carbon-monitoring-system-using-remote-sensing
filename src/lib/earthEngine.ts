@@ -152,6 +152,23 @@ export async function getDynamicWorldLandCover(
 }
 
 /**
+ * Check if an ImageCollection has any images
+ */
+export async function checkCollectionSize(collection: any): Promise<number> {
+  await ensureInitialized();
+  
+  return new Promise((resolve, reject) => {
+    collection.size().evaluate((size: number, error: any) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(size);
+      }
+    });
+  });
+}
+
+/**
  * Calculate area statistics for different land cover classes
  */
 export async function calculateAreaStatistics(
@@ -162,8 +179,12 @@ export async function calculateAreaStatistics(
 
   const polygon = ee.Geometry.Polygon(geometry.coordinates);
 
+  // Select only the classification band (should be named 'classification')
+  const classificationBand = landcoverImage.select('classification');
+
   // Calculate area for each class
-  const areaImage = ee.Image.pixelArea().addBands(landcoverImage);
+  // Add pixel area as the first band, classification as the second band
+  const areaImage = ee.Image.pixelArea().addBands(classificationBand);
 
   const areas = areaImage.reduceRegion({
     reducer: ee.Reducer.sum().group({
@@ -203,12 +224,21 @@ export async function getImageUrl(
       if (error) {
         console.error('Error getting map ID:', error);
         reject(error);
-      } else if (!mapId || !mapId.urlFormat) {
+      } else if (!mapId) {
         console.error('Invalid mapId response:', mapId);
         reject(new Error('Failed to get valid map URL from Earth Engine'));
       } else {
-        // urlFormat already contains the full URL, just use it directly
-        const url = mapId.urlFormat;
+        // Build the tile URL with {z}/{x}/{y} placeholders
+        let url = mapId.urlFormat || mapId.url || '';
+        
+        // If the URL doesn't already have tile coordinates, append them
+        if (!url.includes('{z}')) {
+          // Remove trailing slash if present
+          url = url.replace(/\/$/, '');
+          // Add tile coordinate placeholders
+          url = `${url}/tiles/{z}/{x}/{y}`;
+        }
+        
         console.log('Generated tile URL:', url);
         resolve(url);
       }

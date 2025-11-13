@@ -5,6 +5,7 @@ import {
   getDynamicWorldLandCover,
   calculateAreaStatistics,
   getImageUrl,
+  checkCollectionSize,
 } from '@/lib/earthEngine';
 
 // ESA WorldCover class definitions
@@ -54,7 +55,6 @@ export async function POST(request: NextRequest) {
 
     if (useDynamicWorld && startDate && endDate) {
       // Use Dynamic World AI-based classifier (Deep Learning)
-      console.log('🤖 Using AI-based Dynamic World classifier');
       
       // Progressive fallback: Try to get data, extending time range if needed
       let monthsToTry = 1;
@@ -68,21 +68,32 @@ export async function POST(request: NextRequest) {
         recentStartDate.setMonth(recentStartDate.getMonth() - monthsToTry);
         recentStartStr = recentStartDate.toISOString().split('T')[0];
         
-        console.log(`📅 Attempting to fetch data from ${recentStartStr} to ${endDate} (${monthsToTry} month${monthsToTry > 1 ? 's' : ''})`);
-        
-        dynamicWorld = await getDynamicWorldLandCover(geometry, recentStartStr, endDate);
-        
-        // Try to get the mode and calculate stats
-        const testImage = dynamicWorld.select('label').mode().rename('classification');
-        const testStats = await calculateAreaStatistics(testImage, geometry);
-        
-        if (testStats && testStats.groups && testStats.groups.length > 0) {
-          console.log(`✅ Found data with ${monthsToTry} month${monthsToTry > 1 ? 's' : ''} of history`);
-          actualMonthsUsed = monthsToTry;
-          landcoverImage = testImage;
-          break;
-        } else {
-          console.log(`⚠️ No data found for ${monthsToTry} month${monthsToTry > 1 ? 's' : ''}, trying longer period...`);
+        try {
+          dynamicWorld = await getDynamicWorldLandCover(geometry, recentStartStr, endDate);
+          
+          // Check if collection has any images
+          const collectionSize = await checkCollectionSize(dynamicWorld);
+          
+          if (collectionSize === 0) {
+            console.log(`No images found for ${monthsToTry} month(s), trying longer period...`);
+            monthsToTry++;
+            continue;
+          }
+          
+          // Try to get the mode and calculate stats
+          const testImage = dynamicWorld.select('label').mode().rename('classification');
+          const testStats = await calculateAreaStatistics(testImage, geometry);
+          
+          if (testStats && testStats.groups && testStats.groups.length > 0) {
+            actualMonthsUsed = monthsToTry;
+            landcoverImage = testImage;
+            break;
+          } else {
+            monthsToTry++;
+          }
+        } catch (error) {
+          // Error during processing, try longer period
+          console.log(`Error processing ${monthsToTry} month(s):`, error);
           monthsToTry++;
         }
       }

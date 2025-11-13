@@ -122,6 +122,9 @@ export default function MapComponent({ onPolygonCreated, onPolygonUpdated }: Map
             color: '#2563eb',
             fillOpacity: 0.3,
           },
+          showArea: true,
+          metric: true,
+          repeatMode: false, // Don't automatically start drawing again
         },
         polyline: false,
         circle: false,
@@ -132,11 +135,20 @@ export default function MapComponent({ onPolygonCreated, onPolygonUpdated }: Map
             color: '#2563eb',
             fillOpacity: 0.3,
           },
+          showArea: true,
+          metric: true,
+          repeatMode: false,
         },
       },
       edit: {
         featureGroup: drawnItems,
         remove: true,
+        edit: {
+          selectedPathOptions: {
+            maintainColor: true,
+            opacity: 0.6,
+          },
+        },
       },
     });
 
