@@ -144,10 +144,8 @@ export default function MapComponent({ onPolygonCreated, onPolygonUpdated }: Map
         featureGroup: drawnItems,
         remove: true,
         edit: {
-          selectedPathOptions: {
-            maintainColor: true,
-            opacity: 0.6,
-          },
+          // 'maintainColor' is not part of Leaflet's PathOptions typings; cast to any to allow this option used by leaflet-draw
+          selectedPathOptions: ({ maintainColor: true, opacity: 0.6 } as any),
         },
       },
     });
