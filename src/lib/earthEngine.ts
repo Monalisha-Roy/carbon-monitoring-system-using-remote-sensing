@@ -116,25 +116,21 @@ export function maskS2Clouds(image: any) {
   return image.updateMask(mask).divide(10000);
 }
 
-/**
- * Get land cover classification using ESA WorldCover or Dynamic World
- */
-export async function getLandCover(geometry: any, year: number = 2021) {
-  await ensureInitialized();
+export function calculateLAI(image: any) {
+  const evi = image.select('EVI');
+    const lai = evi.multiply(3.618).subtract(0.118).clamp(0, 8).rename('LAI');
+    return image.addBands(lai);
+};
 
-  const polygon = ee.Geometry.Polygon(geometry.coordinates);
+// Sentinel-2 visualization parameters
+export const s2Visualizations = {
+  trueColor: { bands: ['B4', 'B3', 'B2'], min: 0, max: 0.3 },
+  ndvi: { bands: ['NDVI'], min: -1, max: 1, palette: ['red', 'yellow', 'green'] },
+  evi: { bands: ['EVI'], min: -1, max: 1, palette: ['brown', 'yellow', 'green', 'darkgreen'] },
+  lai: { bands: ['LAI'], min: 0, max: 6, palette: ['white', 'yellow', 'green', 'darkgreen'] },
+};
 
-  // Use ESA WorldCover for land cover classification
-  const landcover = new ee.ImageCollection('ESA/WorldCover/v200')
-    .filterBounds(polygon)
-    .first();
-
-  return landcover;
-}
-
-/**
- * Get Dynamic World land cover (near real-time)
- */
+// Get Dynamic World land cover (near real-time)
 export async function getDynamicWorldLandCover(
   geometry: any,
   startDate: string,

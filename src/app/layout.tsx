@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Land Classification & Carbon Credit Analyzer",
+  title: "carbon stock monitoring system and land cover analysis",
   description: "Analyze land cover, vegetation indices, and estimate carbon credits using satellite data from Google Earth Engine",
 };
 

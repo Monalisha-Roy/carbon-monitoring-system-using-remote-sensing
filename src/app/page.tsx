@@ -121,7 +121,7 @@ export default function Home() {
       <header className="animated-gradient shadow-lg border-b-4 border-blue-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <h1 className="text-3xl font-bold text-white drop-shadow-lg">
-            � Carbon Monitoring System
+            Land Cover and Carbon Stock Monitoring System
           </h1>
           <p className="text-sm text-blue-100 mt-2 font-medium">
             Comprehensive satellite data collection for carbon stock assessment
