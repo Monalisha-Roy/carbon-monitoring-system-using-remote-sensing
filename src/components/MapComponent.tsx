@@ -194,11 +194,11 @@ export default function MapComponent({ onPolygonCreated, onPolygonUpdated }: Map
   }, []);
 
   return (
-    <div className="relative w-full" style={{ height: '700px' }}>
+    <div className="relative w-full" style={{ height: '400px' }}>
       <div 
         id="map" 
         className="w-full h-full rounded-lg shadow-lg" 
-        style={{ height: '700px', zIndex: 0 }} 
+        style={{ height: '400px', zIndex: 0 }} 
       />
       <div className="absolute bottom-4 left-4 bg-white p-3 rounded-lg shadow-md z-[1000]">
         <p className="text-sm text-gray-700 font-medium">

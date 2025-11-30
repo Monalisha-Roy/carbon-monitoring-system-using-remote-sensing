@@ -86,11 +86,29 @@ async function findClosestData(
 }
 
 /**
+ * Calculate polygon area in hectares
+ */
+async function calculatePolygonArea(geometry: any): Promise<number> {
+  await ensureInitialized();
+  const polygon = ee.Geometry.Polygon(geometry.coordinates);
+  
+  const areaM2 = await new Promise<number>((resolve, reject) => {
+    (polygon as any).area({ maxError: 1 }).evaluate((value: number, error: any) => {
+      if (error) reject(error);
+      else resolve(value);
+    });
+  });
+  
+  return areaM2 / 10000; // Convert to hectares
+}
+
+/**
  * Get land classification for a date
  */
 async function getLandClassification(
   geometry: any,
-  targetDate: string
+  targetDate: string,
+  totalAreaHa: number
 ): Promise<{
   classification: any;
   areaStatistics: Array<{ class: number; className: string; areaHa: number; percentage: number }>;
@@ -107,15 +125,10 @@ async function getLandClassification(
   // Calculate area statistics
   const areaStats = await calculateAreaStatistics(classificationImage, geometry);
   
-  // Calculate total area from the sum of all class areas
-  const totalArea = areaStats.groups.reduce((sum: number, group: any) => {
-    return sum + (group.sum / 10000); // Convert m² to hectares
-  }, 0);
-  
   const processedStats = areaStats.groups.map((group: any) => {
     const classValue = group.class;
     const areaHa = group.sum / 10000; // Convert m² to hectares
-    const percentage = totalArea > 0 ? (areaHa / totalArea) * 100 : 0;
+    const percentage = totalAreaHa > 0 ? (areaHa / totalAreaHa) * 100 : 0;
     
     return {
       class: classValue,
@@ -253,17 +266,15 @@ async function getSOCData(geometry: any, date: string): Promise<number> {
  */
 async function getCarbonDataForDate(
   geometry: any,
-  targetDate: string
+  targetDate: string,
+  totalAreaHa: number
 ): Promise<CarbonDataPoint> {
   try {
     console.log(`📊 Fetching carbon data for date: ${targetDate}`);
     
     // Get land classification
-    const { areaStatistics, dataQuality } = await getLandClassification(geometry, targetDate);
+    const { areaStatistics, dataQuality } = await getLandClassification(geometry, targetDate, totalAreaHa);
     console.log(`✅ Land classification complete: ${areaStatistics.length} classes found`);
-    
-    // Calculate total area
-    const totalAreaHa = areaStatistics.reduce((sum, item) => sum + item.areaHa, 0);
     console.log(`📐 Total area: ${totalAreaHa.toFixed(2)} ha`);
     
     // Get biomass data
@@ -320,10 +331,14 @@ export async function POST(request: NextRequest) {
 
     console.log(`🌍 Fetching carbon monitoring data from ${startDate} to ${endDate}`);
 
+    // Calculate polygon area once for consistency
+    const totalAreaHa = await calculatePolygonArea(geometry);
+    console.log(`📐 Polygon area: ${totalAreaHa.toFixed(2)} ha`);
+
     // Fetch data for both dates in parallel
     const [startData, endData] = await Promise.all([
-      getCarbonDataForDate(geometry, startDate),
-      getCarbonDataForDate(geometry, endDate),
+      getCarbonDataForDate(geometry, startDate, totalAreaHa),
+      getCarbonDataForDate(geometry, endDate, totalAreaHa),
     ]);
 
     // Calculate time period
