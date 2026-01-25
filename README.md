@@ -4,12 +4,12 @@ A Next.js application for estimating carbon stocks using **local ML models** and
 
 ## 🌟 Features
 
-- **Interactive Map**: Draw polygons to analyze any area
-- **ML-Based Predictions**: Local trained models for AGB and SOC estimation
-- **Satellite Data Integration**: Sentinel-1, Sentinel-2, SRTM, and more via Google Earth Engine
-- **Temporal Analysis**: Compare carbon stocks between two dates
-- **Comprehensive Dashboard**: Visualize results with charts and statistics
-- **Export Capabilities**: Download results as CSV or PDF
+- **Interactive Map**: Draw polygons to analyze any area of interest
+- **ML-Based Predictions**: XGBoost (AGB) and Random Forest (SOC) models
+- **Satellite Data Integration**: Sentinel-1, Sentinel-2, SRTM, CHIRPS, ERA5 via Google Earth Engine
+- **Carbon Stock Comparison**: Compare carbon stocks between two years (2016-present)
+- **Carbon Credit Estimation**: Calculate potential carbon credits and monetary value
+- **Comprehensive Analysis**: AGB, BGB, SOC, and total carbon density calculations
 
 ## 🏗️ Architecture
 
@@ -67,15 +67,9 @@ API Routes (Next.js Serverless Functions)
 
 #### Terminal 1: Start Model Server
 
-**Windows:**
-```powershell
-.\start-model-server.ps1
-```
-
-**Linux/Mac:**
 ```bash
-chmod +x start-model-server.sh
-./start-model-server.sh
+cd python
+python model_server.py
 ```
 
 This starts the Python Flask server on `http://localhost:5000`
@@ -99,9 +93,10 @@ This starts the Next.js app on `http://localhost:3000`
 ### Satellite Data (via Google Earth Engine)
 - **Sentinel-1 GRD**: SAR data (VV, VH polarizations)
 - **Sentinel-2 Surface Reflectance**: Optical bands (B2-B12)
-- **SRTM DEM**: Elevation and slope
-- **ETH Global Canopy Height**: Tree height
-- **Google Dynamic World**: Land cover classification
+- **SRTM DEM**: Elevation, slope, and aspect
+- **CHIRPS**: Annual precipitation data
+- **ERA5-Land**: Temperature data
+- **OpenLandMap**: Soil texture and bulk density
 
 ### ML Models
 - **AGB Model**: `python/models/AGB_model.pkl` - Trained on NE India data
@@ -113,10 +108,7 @@ This starts the Next.js app on `http://localhost:3000`
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /api/carbon-monitoring` | Comprehensive carbon analysis with temporal comparison |
-| `POST /api/predict-agb` | AGB/BGB prediction using satellite features |
-| `POST /api/satellite` | Fetch satellite imagery and vegetation indices |
-| `POST /api/classify` | Land cover classification |
+| `POST /api/carbon-monitoring` | Carbon stock analysis with year-to-year comparison |
 
 ### Python Model Server
 
@@ -133,20 +125,16 @@ This starts the Next.js app on `http://localhost:3000`
 ├── src/
 │   ├── app/
 │   │   ├── api/              # Next.js API routes
-│   │   │   ├── carbon-monitoring/
-│   │   │   ├── predict-agb/
-│   │   │   ├── satellite/
-│   │   │   └── classify/
+│   │   │   └── carbon-monitoring/  # Main carbon analysis endpoint
 │   │   ├── page.tsx          # Main application page
-│   │   └── layout.tsx
-│   ├── components/           # React components
-│   │   ├── MapComponent.tsx  # Leaflet map with drawing
-│   │   ├── Dashboard.tsx     # Results dashboard
-│   │   ├── Charts.tsx        # Visualization charts
-│   │   └── AGBResults.tsx    # AGB-specific results
+│   │   ├── layout.tsx
+│   │   └── globals.css
+│   ├── components/
+│   │   └── MapComponent.tsx  # Leaflet map with polygon drawing
 │   ├── lib/
 │   │   └── earthEngine.ts    # Google Earth Engine client
-│   └── types/                # TypeScript definitions
+│   └── types/
+│       └── earthengine.d.ts  # Earth Engine TypeScript definitions
 ├── python/
 │   ├── models/               # ML model files
 │   │   ├── AGB_model.pkl
@@ -154,8 +142,7 @@ This starts the Next.js app on `http://localhost:3000`
 │   └── model_server.py       # Flask inference server
 ├── ml/                       # Jupyter notebooks for model training
 ├── requirements.txt          # Python dependencies
-├── package.json              # Node.js dependencies
-└── start-model-server.*      # Server startup scripts
+└── package.json              # Node.js dependencies
 ```
 
 ## 🧪 Testing
@@ -187,7 +174,7 @@ curl -X POST http://localhost:5000/predict/agb \
 
 Open browser console and run:
 ```javascript
-fetch('/api/predict-agb', {
+fetch('/api/carbon-monitoring', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -195,7 +182,8 @@ fetch('/api/predict-agb', {
       type: 'Polygon',
       coordinates: [[[92.0, 26.0], [92.1, 26.0], [92.1, 26.1], [92.0, 26.1], [92.0, 26.0]]]
     },
-    targetDate: '2024-01-15'
+    startYear: 2020,
+    endYear: 2024
   })
 }).then(r => r.json()).then(console.log)
 ```
