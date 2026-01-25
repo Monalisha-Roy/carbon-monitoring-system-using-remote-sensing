@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
-    "start": "next start"
+    "start": "next start",
+    "test:setup": "python test_setup.py",
+    "model-server": "python python/model_server.py"
   },
   "dependencies": {
     "@google/earthengine": "^1.6.12",

@@ -1,0 +1,208 @@
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Carbon Monitoring System Architecture                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│                              USER INTERFACE                                 │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  React + Leaflet Map (http://localhost:3000)                         │  │
+│  │  - Draw polygon on map                                               │  │
+│  │  - Select date range                                                 │  │
+│  │  - View results in dashboard                                         │  │
+│  └────────────────────────┬─────────────────────────────────────────────┘  │
+└────────────────────────────┼────────────────────────────────────────────────┘
+                             │
+                             ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│                         NEXT.JS API ROUTES                                  │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │  /api/carbon-monitoring                                              │  │
+│  │  - Main carbon stock analysis                                        │  │
+│  │  - Temporal comparison                                               │  │
+│  │  - Calls both GEE and Model Server                                   │  │
+│  └────────────┬───────────────────────────────────┬─────────────────────┘  │
+│  ┌────────────┴──────────┐                       ┌┴─────────────────────┐  │
+│  │  /api/predict-agb     │                       │  /api/satellite      │  │
+│  │  - Extract features   │                       │  - Fetch imagery     │  │
+│  │  - Call AGB model     │                       │  - Calculate NDVI    │  │
+│  └────────────┬──────────┘                       └──────────────────────┘  │
+└────────────────┼─────────────────────────────────────────────────────────────┘
+                 │
+        ┌────────┴────────┐
+        ▼                 ▼
+┌──────────────┐  ┌──────────────────────────────┐
+│              │  │  PYTHON MODEL SERVER         │
+│  GOOGLE      │  │  (http://localhost:5000)     │
+│  EARTH       │  │                              │
+│  ENGINE      │  │  ┌────────────────────────┐  │
+│              │  │  │  Flask REST API        │  │
+│  ┌────────┐  │  │  │  - /predict/agb       │  │
+│  │Sentinel│  │  │  │  - /predict/soc       │  │
+│  │  1/2   │  │  │  │  - /predict/batch     │  │
+│  └────────┘  │  │  └──────────┬─────────────┘  │
+│              │  │             ▼                 │
+│  ┌────────┐  │  │  ┌────────────────────────┐  │
+│  │ SRTM   │  │  │  │  ML Models (.pkl)      │  │
+│  │  DEM   │  │  │  │                        │  │
+│  └────────┘  │  │  │  ┌──────────────────┐  │  │
+│              │  │  │  │  AGB_model.pkl   │  │  │
+│  ┌────────┐  │  │  │  │  - XGBoost/RF    │  │  │
+│  │Canopy  │  │  │  │  │  - 20 features   │  │  │
+│  │Height  │  │  │  │  └──────────────────┘  │  │
+│  └────────┘  │  │  │                        │  │
+│              │  │  │  ┌──────────────────┐  │  │
+│  ┌────────┐  │  │  │  │  SOC_model.pkl   │  │  │
+│  │Dynamic │  │  │  │  │  - Regression    │  │  │
+│  │ World  │  │  │  │  │  - 12 features   │  │  │
+│  └────────┘  │  │  │  └──────────────────┘  │  │
+│              │  │  └────────────────────────┘  │
+└──────────────┘  └──────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          DATA FLOW SEQUENCE                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+1. USER ACTION
+   └─► Draw polygon → Select dates → Click "Analyze"
+
+2. NEXT.JS API (/api/carbon-monitoring)
+   ├─► Calculate polygon area
+   ├─► Get land classification (GEE → Dynamic World)
+   └─► For each date:
+       ├─► getSatelliteFeatures()
+       │   ├─► Sentinel-2 → Optical bands (B2-B12)
+       │   ├─► Sentinel-2 → NDVI calculation
+       │   ├─► Sentinel-1 → SAR data (VV, VH)
+       │   ├─► SRTM → Elevation, slope
+       │   └─► Centroid → Lat/Long
+       │
+       ├─► getBiomassData()
+       │   └─► POST http://localhost:5000/predict/agb
+       │       └─► Returns: { agb: 45.2, bgb: 10.8 }
+       │
+       └─► getSOCData()
+           └─► POST http://localhost:5000/predict/soc
+               └─► Returns: { soc: 28.5 }
+
+3. PYTHON MODEL SERVER
+   ├─► /predict/agb
+   │   ├─► Extract 20 features from request
+   │   ├─► Load AGB_model.pkl
+   │   ├─► model.predict(features)
+   │   └─► Return { agb, bgb }
+   │
+   └─► /predict/soc
+       ├─► Extract features from request
+       ├─► Load SOC_model.pkl
+       ├─► model.predict(features)
+       └─► Return { soc }
+
+4. RESPONSE TO USER
+   └─► Dashboard displays:
+       ├─► Map with polygon
+       ├─► Land classification breakdown
+       ├─► Carbon pools (AGB, BGB, SOC)
+       ├─► Total carbon stock
+       ├─► Temporal changes
+       ├─► Charts and visualizations
+       └─► Export options (CSV, PDF)
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          FEATURE EXTRACTION                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Satellite Data Sources → Features for ML Models:
+
+SENTINEL-2 (Optical)         SENTINEL-1 (SAR)           TERRAIN
+├─ B2 (Blue)                 ├─ VV (Vertical-Vertical)  ├─ Elevation
+├─ B3 (Green)                ├─ VH (Vertical-Horiz)     └─ Slope
+├─ B4 (Red)                  ├─ VH_entropy              
+├─ B5 (Red Edge 1)           └─ VH_variance             LOCATION
+├─ B6 (Red Edge 2)                                      ├─ Latitude
+├─ B7 (Red Edge 3)           DERIVED                    └─ Longitude
+├─ B8 (NIR)                  ├─ NDVI = (B8-B4)/(B8+B4)  
+├─ B11 (SWIR 1)              └─ NDVI_sigma              CANOPY
+├─ B12 (SWIR 2)                                         └─ Height
+
+All features → reduceRegion(mean) → Single value per polygon
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       CARBON STOCK CALCULATION                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+For each polygon:
+
+1. Area Calculation
+   polygon.area() → Square meters → Hectares
+
+2. Carbon Pools (per hectare)
+   ├─► AGB (Above Ground Biomass)   [ML Model]
+   ├─► BGB (Below Ground Biomass)   [AGB × 0.24]
+   └─► SOC (Soil Organic Carbon)    [ML Model]
+
+3. Total Carbon Stock
+   (AGB + BGB + SOC) × Area (ha) = Total tonnes Carbon
+
+4. CO₂ Equivalent
+   Total Carbon × 3.67 = CO₂ equivalent
+
+5. Temporal Change (if 2 dates)
+   End Carbon - Start Carbon = Change (tonnes)
+   Change / Years = Annual Change Rate
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           QUICK COMMANDS                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Setup:
+  python test_setup.py              → Test installation
+
+Start Servers:
+  .\start-model-server.ps1          → Start Python server (Windows)
+  ./start-model-server.sh           → Start Python server (Linux/Mac)
+  npm run dev                       → Start Next.js (separate terminal)
+
+Test Endpoints:
+  curl http://localhost:5000/health → Check model server
+  curl http://localhost:3000        → Check Next.js app
+
+Logs:
+  Terminal 1: Python server logs (predictions, model loading)
+  Terminal 2: Next.js logs (API calls, GEE operations)
+
+Common Issues:
+  "Model server not running"        → Start Python server first
+  "Earth Engine 401"                → Check .env.local credentials
+  "Port already in use"             → Change PORT in model server
+  "Model loading error"             → Verify .pkl files exist
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              PORTS USED                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  5000  →  Python Model Server (Flask)
+  3000  →  Next.js Development Server
+  
+  Both must be running simultaneously!
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          FILE LOCATIONS                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  python/
+    ├─ models/
+    │   ├─ AGB_model.pkl              ← Your ML models (required)
+    │   └─ SOC_model.pkl              ← Your ML models (required)
+    └─ model_server.py                ← Flask server
+
+  src/app/api/
+    ├─ carbon-monitoring/route.ts     ← Main analysis endpoint
+    ├─ predict-agb/route.ts           ← AGB prediction endpoint
+    ├─ satellite/route.ts             ← Satellite data endpoint
+    └─ classify/route.ts              ← Land classification endpoint
+
+  Documentation:
+    ├─ README.md                      ← Project overview
+    ├─ SETUP_GUIDE.md                 ← Detailed setup
+    ├─ INTEGRATION_SUMMARY.md         ← This summary
+    └─ .env.example                   ← Environment template
