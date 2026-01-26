@@ -2,7 +2,7 @@
 
 A Next.js application for estimating carbon stocks using **local ML models** and **Google Earth Engine** satellite data. The system calculates Above Ground Biomass (AGB), Below Ground Biomass (BGB), and Soil Organic Carbon (SOC) for user-drawn polygons.
 
-## 🌟 Features
+## Features
 
 - **Interactive Map**: Draw polygons to analyze any area of interest
 - **ML-Based Predictions**: XGBoost (AGB) and Random Forest (SOC) models
@@ -242,14 +242,14 @@ MODEL_SERVER_URL=http://localhost:5001
 
 See [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Google Earth Engine for satellite data access
 - Sentinel-1 and Sentinel-2 missions
 - OpenLandMap and WCMC for reference datasets
 - Northeast India forest survey data for model training
 
-## 📞 Support
+## Support
 
 For issues and questions:
 1. Check [SETUP_GUIDE.md](SETUP_GUIDE.md)
@@ -259,4 +259,4 @@ For issues and questions:
 
 ---
 
-**Made with ❤️ using Next.js 15, Google Earth Engine, and Machine Learning**
+**Made using Next.js 15, Google Earth Engine, and Machine Learning**
